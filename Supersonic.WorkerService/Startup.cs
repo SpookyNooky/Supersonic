@@ -8,6 +8,7 @@ using Supersonic.WorkerService.Models;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
+using System;
 
 namespace Supersonic.WorkerService
 {
@@ -44,7 +45,6 @@ namespace Supersonic.WorkerService
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                // Map the WebSocket endpoint
                 endpoints.Map("/ws", WebSocketHandler);
             });
         }
@@ -67,13 +67,32 @@ namespace Supersonic.WorkerService
         private async Task HandleWebSocketConnection(HttpContext context, WebSocket webSocket)
         {
             var buffer = new byte[1024 * 4];
-            WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            while (!result.CloseStatus.HasValue)
+            try
             {
-                await webSocket.SendAsync(new ArraySegment<byte>(buffer, 0, result.Count), result.MessageType, result.EndOfMessage, CancellationToken.None);
-                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                while (!result.CloseStatus.HasValue)
+                {
+                    await webSocket.SendAsync(new ArraySegment<byte>(buffer, 0, result.Count), result.MessageType, result.EndOfMessage, CancellationToken.None);
+                    result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                }
+                await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
             }
-            await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
+            catch (Exception ex)
+            {
+                // Handle exceptions (if needed)
+                Console.WriteLine($"WebSocket error: {ex.Message}");
+            }
+            finally
+            {
+                OnWebSocketDisconnected(webSocket);
+            }
+        }
+
+        private void OnWebSocketDisconnected(WebSocket webSocket)
+        {
+            // Logic to handle WebSocket disconnection
+            Console.WriteLine("WebSocket disconnected.");
+            // You can implement further logic here, like notifying the application about the disconnection
         }
     }
 }
