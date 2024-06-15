@@ -1,13 +1,9 @@
-﻿namespace Supersonic.WorkerService
-{
-    using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.Hosting;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Hosting;
-    using Supersonic.Core.Interfaces;
-    using Supersonic.Infrastructure.Network;
-    using Supersonic.WorkerService.Models;
+﻿using Supersonic.Core.Interfaces;
+using Supersonic.Infrastructure.Network;
+using Supersonic.WorkerService.Models;
 
+namespace Supersonic.WorkerService
+{
     public class Startup
     {
         public void ConfigureServices(IServiceCollection services)

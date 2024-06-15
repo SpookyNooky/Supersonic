@@ -1,17 +1,9 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Supersonic.Core.Entities;
 using Supersonic.Core.Interfaces;
 using Supersonic.Core.Utils;
 using Supersonic.Infrastructure.Network;
 using Supersonic.WorkerService.Models;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Supersonic.WorkerService
 {

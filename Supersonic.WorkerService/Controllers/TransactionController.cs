@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
 using Supersonic.Infrastructure.Network;
-using System.Threading.Tasks;
 
 namespace Supersonic.WorkerService.Controllers
 {
