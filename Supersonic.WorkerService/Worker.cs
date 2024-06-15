@@ -61,7 +61,7 @@ namespace Supersonic.WorkerService
                     if (node != nodeUrl)
                     {
                         await _networkService.ConnectAsync(node);
-                        await _networkService.SendTransactionAsync(transaction);
+                        //await _networkService.SendTransactionAsync(transaction);
                     }
                 }
 

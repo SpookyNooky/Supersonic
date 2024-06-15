@@ -1,46 +1,73 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Supersonic.Core.Entities;
+using Microsoft.Extensions.Logging;
 using System.Net.WebSockets;
-using System.Text;
 using System.Text.Json;
+using System.Text;
+using Supersonic.Core.Entities;
 
-namespace Supersonic.Infrastructure.Network
+public class NetworkService
 {
-    public class NetworkService
-    {
-        private ClientWebSocket _webSocket;
+    private ClientWebSocket _webSocket;
+    private readonly ILogger<NetworkService> _logger;
 
-        public async Task ConnectAsync(string url)
+    public NetworkService(ILogger<NetworkService> logger)
+    {
+        _logger = logger;
+    }
+
+    public async Task ConnectAsync(string url)
+    {
+        try
         {
             _webSocket = new ClientWebSocket();
             await _webSocket.ConnectAsync(new Uri(url), CancellationToken.None);
+            _logger.LogInformation("Connected to WebSocket server at {Url}", url);
         }
-
-        public async Task SendTransactionAsync(Transaction transaction, CancellationToken cancellationToken = default)
+        catch (WebSocketException ex)
         {
-            try
-            {
-                var transactionJson = JsonSerializer.Serialize(transaction);
-                var transactionBytes = Encoding.UTF8.GetBytes(transactionJson);
-                var segment = new ArraySegment<byte>(transactionBytes);
-                await _webSocket.SendAsync(segment, WebSocketMessageType.Text, true, cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                // Log or handle the error as needed
-                Console.WriteLine($"Error sending transaction: {ex.Message}");
-            }
+            _logger.LogError(ex, "Error connecting to WebSocket server at {Url}", url);
+            _webSocket.Dispose();
         }
-
-        public async Task ReceiveTransactionAsync(HttpContext context, CancellationToken cancellationToken = default)
+        catch (Exception ex)
         {
-            if (context.WebSockets.IsWebSocketRequest)
-            {
-                using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                var buffer = new byte[1024 * 4];
-                WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+            _logger.LogError(ex, "Unexpected error connecting to WebSocket server at {Url}", url);
+            _webSocket.Dispose();
+        }
+    }
 
-                while (!result.CloseStatus.HasValue)
+    public async Task SendTransactionAsync(Transaction transaction, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (_webSocket.State != WebSocketState.Open)
+            {
+                _logger.LogWarning("WebSocket is not open. Current state: {State}", _webSocket.State);
+                return;
+            }
+
+            var transactionJson = JsonSerializer.Serialize(transaction);
+            var transactionBytes = Encoding.UTF8.GetBytes(transactionJson);
+            var segment = new ArraySegment<byte>(transactionBytes);
+            await _webSocket.SendAsync(segment, WebSocketMessageType.Text, true, cancellationToken);
+            _logger.LogInformation("Transaction sent successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending transaction");
+        }
+    }
+
+    public async Task ReceiveTransactionAsync(HttpContext context, CancellationToken cancellationToken = default)
+    {
+        if (context.WebSockets.IsWebSocketRequest)
+        {
+            using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            var buffer = new byte[1024 * 4];
+            WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+
+            while (!result.CloseStatus.HasValue)
+            {
+                try
                 {
                     var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
                     var transaction = JsonSerializer.Deserialize<Transaction>(message);
@@ -48,17 +75,23 @@ namespace Supersonic.Infrastructure.Network
                     if (transaction != null)
                     {
                         // Process the transaction
+                        _logger.LogInformation("Transaction received and processed.");
                     }
-
-                    result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error receiving transaction");
                 }
 
-                await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, cancellationToken);
+                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationToken);
             }
-            else
-            {
-                context.Response.StatusCode = 400;
-            }
+
+            await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, cancellationToken);
+        }
+        else
+        {
+            context.Response.StatusCode = 400;
+            _logger.LogWarning("Invalid WebSocket request.");
         }
     }
 }

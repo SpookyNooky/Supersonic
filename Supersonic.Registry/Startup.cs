@@ -15,11 +15,14 @@
                 app.UseDeveloperExceptionPage();
             }
 
+            app.UseWebSockets();
+
             app.UseRouting();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
             });
         }
+
     }
 }
